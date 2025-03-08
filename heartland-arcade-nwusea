@@ -1,0 +1,35 @@
+-- this script definitelly was not made with chatgpt real real
+
+local workspace = game:GetService("Workspace")
+
+local function addHighlightToHeartModels()
+    local processedHearts = {}
+
+    while true do
+        for _, object in pairs(workspace:GetDescendants()) do
+            if object:IsA("Model") and object.Name:sub(1, 5) == "Heart" then
+                local heartNumber = tonumber(object.Name:sub(6))
+                
+                if heartNumber and heartNumber >= 1 and heartNumber <= 10 and not processedHearts[object] then
+                    processedHearts[object] = true
+
+                    for _, part in pairs(object:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Parent = part
+                            highlight.Adornee = part
+                            highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                            highlight.FillTransparency = 0.5
+                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            highlight.OutlineTransparency = 0.5
+                        end
+                    end
+                end
+            end
+        end
+
+        wait(1)
+    end
+end
+
+addHighlightToHeartModels()
