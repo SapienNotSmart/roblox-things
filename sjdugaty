@@ -20,37 +20,37 @@ local w1 = library:Window("Cherry Blossom Festival") -- Text
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 
 local firstPosition = Vector3.new(-2968, 5502, 11817)
 local secondPosition = Vector3.new(-3041, 5529, 11928)
+local afkPosition = Vector3.new(76, 38, -1322)
 
 local running = false
 local platformParts = {}
 
--- Função segura para chamar task.status
-local function safeTaskStatus(taskId)
-    if taskId then
-        local success, result = pcall(function() 
-            return task.status(taskId)
-        end)
-        if success then
-            return result
+-- ⏱️ Lê o tempo do minigame (segundos)
+local function getTimeUntilMinigame()
+    local success, result = pcall(function()
+        local label = Workspace.Interiors["MainMap!Default"]
+            .BlossomShakedownJoinZone
+            .Billboard
+            .BillboardGui
+            .TimerLabel
+
+        if label and label.ContentText then
+            local minutes, seconds = string.match(label.ContentText, "(%d+):(%d+)")
+            if minutes and seconds then
+                return tonumber(minutes) * 60 + tonumber(seconds)
+            end
         end
-    end
-    return "dead" -- Assume que a tarefa está morta se não puder verificar
+        return nil
+    end)
+    return success and result or nil
 end
 
--- Função segura para chamar task.cancel
-local function safeTaskCancel(taskId)
-    if taskId then
-        pcall(function()
-            task.cancel(taskId)
-        end)
-    end
-end
-
--- Função para encontrar o joinZonePath (mais confiável)
 local function getJoinZonePath()
     if Workspace:FindFirstChild("Interiors") 
     and Workspace.Interiors:FindFirstChild("MainMap!Default") 
@@ -61,7 +61,6 @@ local function getJoinZonePath()
     return nil
 end
 
--- Utils
 local function teleportPlayer(pos)
     if typeof(pos) ~= "Vector3" then return false end
     
@@ -69,7 +68,6 @@ local function teleportPlayer(pos)
     if char and char:FindFirstChild("HumanoidRootPart") then
         pcall(function()
             char.HumanoidRootPart.CFrame = CFrame.new(pos)
-            -- Tentativas múltiplas para garantir o teleporte
             for i = 1, 3 do
                 task.wait(0.1)
                 char.HumanoidRootPart.CFrame = CFrame.new(pos)
@@ -118,10 +116,8 @@ local function unfreezePlayer()
         if char and char:FindFirstChild("HumanoidRootPart") then
             local bp = char.HumanoidRootPart:FindFirstChild("FreezePosition")
             if bp then bp:Destroy() end
-            return true
         end
     end)
-    return false
 end
 
 local function cleanupPlatform()
@@ -136,7 +132,6 @@ local function cleanupPlatform()
 end
 
 local function createSafePlatform(center)
-    -- Limpar plataforma anterior, se existir
     cleanupPlatform()
     
     if typeof(center) ~= "Vector3" then return end
@@ -166,8 +161,8 @@ local function createSafePlatform(center)
         return nil
     end
 
-    makePart(platformSize, center - Vector3.new(0, 0.5, 0)) -- base
-    makePart(platformSize, center + Vector3.new(0, wallHeight, 0)) -- teto
+    makePart(platformSize, center - Vector3.new(0, 0.5, 0))
+    makePart(platformSize, center + Vector3.new(0, wallHeight, 0))
     makePart(Vector3.new(platformSize.X, wallHeight, wallThickness), center + Vector3.new(0, wallHeight/2, -platformSize.Z/2))
     makePart(Vector3.new(platformSize.X, wallHeight, wallThickness), center + Vector3.new(0, wallHeight/2, platformSize.Z/2))
     makePart(Vector3.new(wallThickness, wallHeight, platformSize.Z), center + Vector3.new(-platformSize.X/2, wallHeight/2, 0))
@@ -181,30 +176,16 @@ local function isMinigameActive()
             and Workspace.Interiors.BlossomShakedownInterior:FindFirstChild("RingPickups")
             and #Workspace.Interiors.BlossomShakedownInterior.RingPickups:GetChildren() > 0
     end)
-    
-    if success then
-        return result
-    end
-    return false
+    return success and result or false
 end
 
 local function getRingPickupsFolder()
     local success, result = pcall(function()
-        if Workspace:FindFirstChild("Interiors") 
-        and Workspace.Interiors:FindFirstChild("BlossomShakedownInterior") 
-        and Workspace.Interiors.BlossomShakedownInterior:FindFirstChild("RingPickups") then
-            return Workspace.Interiors.BlossomShakedownInterior.RingPickups
-        end
-        return nil
+        return Workspace.Interiors.BlossomShakedownInterior.RingPickups
     end)
-    
-    if success then
-        return result
-    end
-    return nil
+    return success and result or nil
 end
 
--- Função melhorada para puxar os modelos continuamente
 local function pullModelsLoop()
     while running and isMinigameActive() do
         local char = LocalPlayer.Character
@@ -212,20 +193,17 @@ local function pullModelsLoop()
             task.wait(0.5)
             continue 
         end
-        
+
         local folder = getRingPickupsFolder()
         if not folder then
             task.wait(0.2)
             continue
         end
-        
-        -- Contador para verificar se ainda existem modelos para coletar
+
         local modelCount = 0
-        
         pcall(function()
             for _, model in ipairs(folder:GetChildren()) do
                 if not running then break end
-                
                 if model:IsA("Model") and model.Name == "Model" then
                     modelCount = modelCount + 1
                     local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
@@ -234,53 +212,51 @@ local function pullModelsLoop()
                             model:SetPrimaryPartCFrame(char.HumanoidRootPart.CFrame)
                         end)
                     end
-                    -- Pequena pausa entre cada modelo para evitar sobrecarga
                     task.wait(0.05)
                 end
             end
         end)
-        
-        -- Se não houver modelos, aguarde um pouco mais
-        if modelCount == 0 then
-            task.wait(0.5)
-        else
-            task.wait(0.1) -- Verificação mais frequente quando há modelos
-        end
+
+        task.wait(modelCount == 0 and 0.5 or 0.1)
     end
 end
 
--- Função principal melhorada com tratamento de erros robusto
+-- Clica a cada 10s na AFK Zone
+local function stayAFKLoop()
+    while running do
+        local timeLeft = getTimeUntilMinigame()
+        if not timeLeft or timeLeft <= 30 then break end
+
+        -- Simula clique no centro da tela
+        VirtualInputManager:SendMouseButtonEvent(500, 500, 0, true, game, 0)
+        VirtualInputManager:SendMouseButtonEvent(500, 500, 0, false, game, 0)
+
+        task.wait(10)
+    end
+end
+
+-- 🌸 Autofarm principal
 local function startAutofarm()
     local waitingForMinigame = true
     local failedAttempts = 0
     
     while running do
-        -- Verifica se o minigame está ativo com proteção contra erros
         local minigameActive = isMinigameActive()
-        
+
         if not minigameActive then
-            if waitingForMinigame then
+            local timeLeft = getTimeUntilMinigame()
+            if timeLeft and timeLeft <= 30 then
                 local joinZone = getJoinZonePath()
                 if joinZone then
-                    local success = teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
-                    if not success then
-                        failedAttempts = failedAttempts + 1
-                        if failedAttempts > 5 then
-                            task.wait(3) -- Aguarda mais tempo após várias falhas
-                            failedAttempts = 0
-                        end
-                    else
-                        failedAttempts = 0
-                    end
+                    teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
                 end
-                waitingForMinigame = false
+            else
+                teleportPlayer(afkPosition)
+                task.spawn(stayAFKLoop)
             end
-            task.wait(1)
-        else
-            -- Minigame ativo
-            waitingForMinigame = true
-            failedAttempts = 0
 
+            task.wait(2)
+        else
             teleportPlayer(firstPosition)
             task.wait(1)
 
@@ -292,63 +268,25 @@ local function startAutofarm()
             task.wait(0.3)
 
             freezePlayer()
-            
-            -- Iniciando a coleta em uma tarefa separada com proteção contra erros
-            local collectionTask
-            pcall(function() 
-                collectionTask = task.spawn(pullModelsLoop)
-            end)
-            
-            -- Monitoramento contínuo para verificar se o minigame ainda está ativo
+
+            local taskId = task.spawn(pullModelsLoop)
+
             while running and isMinigameActive() do
-                -- Verificar se a coleta está funcionando com proteção contra erros
-                if collectionTask and safeTaskStatus(collectionTask) ~= "running" then
-                    -- Reiniciar tarefa de coleta se parou
-                    pcall(function() 
-                        collectionTask = task.spawn(pullModelsLoop)
-                    end)
+                if taskId and coroutine.status(taskId) ~= "running" then
+                    taskId = task.spawn(pullModelsLoop)
                 end
                 task.wait(1)
             end
 
-            -- Minigame acabou - cancela a tarefa com proteção contra erros
-            if collectionTask then
-                safeTaskCancel(collectionTask)
-            end
-            
             unfreezePlayer()
             cleanupPlatform()
-            
-            -- Pequena pausa antes de tentar teleportar de volta
             task.wait(1)
-            
-            -- Correção para o problema da joinZone com proteção contra erros
-            if running then
-                -- Tente várias vezes encontrar a joinZone, já que ela pode demorar para reaparecer
-                local attempts = 0
-                local maxAttempts = 10
-                local joinZone
-                
-                while attempts < maxAttempts do
-                    pcall(function()
-                        joinZone = getJoinZonePath()
-                    end)
-                    
-                    if joinZone then
-                        break
-                    end
-                    attempts = attempts + 1
-                    task.wait(1) -- Espera 1 segundo entre cada tentativa
-                end
-                
-                -- Só tenta teleportar se encontrou a joinZone
-                if joinZone then
-                    teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
-                else
-                    -- Caso não encontre a joinZone após várias tentativas
-                    -- Teleporta para uma posição padrão segura
-                    teleportPlayer(firstPosition)
-                end
+
+            local joinZone = getJoinZonePath()
+            if joinZone then
+                teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
+            else
+                teleportPlayer(firstPosition)
             end
         end
 
@@ -356,24 +294,19 @@ local function startAutofarm()
     end
 end
 
--- Toggle com proteção contra erros
-w1:Toggle(
-    "Sakura Swoop Autofarm",
-    "maf",
-    false,
-    function(toggled)
-        running = toggled
+-- 🔘 Toggle com biblioteca w1 (se necessário, substitua pelo seu sistema de UI)
+w1:Toggle("Sakura Swoop Autofarm", "maf", false, function(toggled)
+    running = toggled
 
-        if toggled then
-            pcall(function()
-                task.spawn(startAutofarm)
-            end)
-        else
-            unfreezePlayer()
-            cleanupPlatform()
-        end
+    if toggled then
+        pcall(function()
+            task.spawn(startAutofarm)
+        end)
+    else
+        unfreezePlayer()
+        cleanupPlatform()
     end
-)
+end)
 
 w1:Button(
     "Blossoms Tracker",
@@ -544,7 +477,7 @@ local function createMainUI()
         elseif not currentlyInGame and inGame then
             inGame = false
             statusLabel.Text = "Status: Calculating..."
-            task.delay(5, function()
+            task.delay(7, function()
                 local blossomsAfter = getCurrentBlossoms()
                 local gained = blossomsAfter - blossomsBeforeGame
                 if gained > 0 then
