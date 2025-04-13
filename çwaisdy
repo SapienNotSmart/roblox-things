@@ -22,7 +22,6 @@ local running = false
 local currentWaitingPositionIndex = 1
 local waitingTimer = 0
 local inAnyMinigame = false
-local checkingForMinigames = true
 
 -- Configurações Sakura Swoop
 local sakuraRunning = false
@@ -37,22 +36,38 @@ local sakuraSecondPosition = Vector3.new(-3041, 5529, 11928)
 -- Configurações Tear Up Toykyo
 local tearUpRunning = false
 
--- Debug
-local function debugPrint(message)
-    print("[DEBUG] " .. message)
+-- Path dos timers
+local sakuraTimerLabel = workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Billboard.BillboardGui.TimerLabel
+local tearUpTimerLabel = workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone.Billboard.BillboardGui.TimerLabel
+
+-- Path das join zones
+local function getSakuraJoinZonePath()
+    if Workspace:FindFirstChild("Interiors") 
+    and Workspace.Interiors:FindFirstChild("MainMap!Default") 
+    and Workspace.Interiors["MainMap!Default"]:FindFirstChild("BlossomShakedownJoinZone") 
+    and Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone:FindFirstChild("Collider") then
+        return Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Collider
+    end
+    return nil
+end
+
+local function getTearUpJoinZonePath()
+    if Workspace:FindFirstChild("Interiors") 
+    and Workspace.Interiors:FindFirstChild("MainMap!Default") 
+    and Workspace.Interiors["MainMap!Default"]:FindFirstChild("TearUpToykyoJoinZone") 
+    and Workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone:FindFirstChild("Collider") then
+        return Workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone.Collider
+    end
+    return nil
 end
 
 -- Funções utilitárias
 local function teleportPlayer(pos)
-    if typeof(pos) ~= "Vector3" then 
-        debugPrint("Posição inválida para teleporte")
-        return false 
-    end
+    if typeof(pos) ~= "Vector3" then return false end
     
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         pcall(function()
-            debugPrint("Teleportando para: " .. tostring(pos))
             char.HumanoidRootPart.CFrame = CFrame.new(pos)
             for i = 1, 3 do
                 task.wait(0.1)
@@ -61,7 +76,6 @@ local function teleportPlayer(pos)
         end)
         return true
     end
-    debugPrint("Falha ao teleportar: Personagem ou HumanoidRootPart não encontrado")
     return false
 end
 
@@ -122,50 +136,8 @@ local function teleportTo(pos, ignoreSafety)
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-            return true
         end
     end
-    return false
-end
-
--- Path dos timers e funções para acessá-los
-local function getSakuraTimerLabel()
-    return Workspace:FindFirstChild("Interiors") 
-        and Workspace.Interiors:FindFirstChild("MainMap!Default")
-        and Workspace.Interiors["MainMap!Default"]:FindFirstChild("BlossomShakedownJoinZone")
-        and Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone:FindFirstChild("Billboard")
-        and Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Billboard:FindFirstChild("BillboardGui")
-        and Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Billboard.BillboardGui:FindFirstChild("TimerLabel")
-end
-
-local function getTearUpTimerLabel()
-    return Workspace:FindFirstChild("Interiors") 
-        and Workspace.Interiors:FindFirstChild("MainMap!Default")
-        and Workspace.Interiors["MainMap!Default"]:FindFirstChild("TearUpToykyoJoinZone")
-        and Workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone:FindFirstChild("Billboard")
-        and Workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone.Billboard:FindFirstChild("BillboardGui")
-        and Workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone.Billboard.BillboardGui:FindFirstChild("TimerLabel")
-end
-
--- Path das join zones
-local function getSakuraJoinZonePath()
-    if Workspace:FindFirstChild("Interiors") 
-    and Workspace.Interiors:FindFirstChild("MainMap!Default") 
-    and Workspace.Interiors["MainMap!Default"]:FindFirstChild("BlossomShakedownJoinZone") 
-    and Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone:FindFirstChild("Collider") then
-        return Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Collider
-    end
-    return nil
-end
-
-local function getTearUpJoinZonePath()
-    if Workspace:FindFirstChild("Interiors") 
-    and Workspace.Interiors:FindFirstChild("MainMap!Default") 
-    and Workspace.Interiors["MainMap!Default"]:FindFirstChild("TearUpToykyoJoinZone") 
-    and Workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone:FindFirstChild("Collider") then
-        return Workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone.Collider
-    end
-    return nil
 end
 
 -- Verificação de minigames
@@ -251,11 +223,11 @@ end
 
 local function sakuraPullModelsLoop()
     if sakuraCollectionComplete then
-        debugPrint("Sakura: Coleta já concluída. Esperando o minigame terminar.")
+        print("Sakura: Coleta já concluída. Esperando o minigame terminar.")
         return
     end
     
-    debugPrint("Sakura: Iniciando coleta de models. Limite: " .. sakuraMaxModelsToCollect)
+    print("Sakura: Iniciando coleta de models. Limite: " .. sakuraMaxModelsToCollect)
     sakuraTotalModelsPulled = 0
     
     while sakuraRunning and isSakuraMinigameActive() and sakuraTotalModelsPulled < sakuraMaxModelsToCollect do
@@ -286,12 +258,12 @@ local function sakuraPullModelsLoop()
                     if part then
                         model:SetPrimaryPartCFrame(char.HumanoidRootPart.CFrame)
                         sakuraTotalModelsPulled = sakuraTotalModelsPulled + 1
-                        debugPrint("Sakura: Model trazido: " .. sakuraTotalModelsPulled .. "/" .. sakuraMaxModelsToCollect)
+                        print("Sakura: Model trazido: " .. sakuraTotalModelsPulled .. "/" .. sakuraMaxModelsToCollect)
                         
                         task.wait(0.5)
                         
                         if sakuraTotalModelsPulled >= sakuraMaxModelsToCollect then
-                            debugPrint("Sakura: Limite de " .. sakuraMaxModelsToCollect .. " models atingido. Parando.")
+                            print("Sakura: Limite de " .. sakuraMaxModelsToCollect .. " models atingido. Parando.")
                             sakuraCollectionComplete = true
                             break
                         end
@@ -309,7 +281,7 @@ local function sakuraPullModelsLoop()
     end
     
     sakuraCollectionComplete = true
-    debugPrint("Sakura: Coleta de models finalizada. Total coletado: " .. sakuraTotalModelsPulled)
+    print("Sakura: Coleta de models finalizada. Total coletado: " .. sakuraTotalModelsPulled)
 end
 
 -- Funções específicas para Tear Up Toykyo
@@ -332,20 +304,40 @@ local function teleportToTrees()
     end
 end
 
--- Funções para verificar timer
+-- Funções para verificar timer (melhorada)
 local function getTimerSeconds(timerLabel)
-    if not timerLabel then return nil end
-    
-    local text = timerLabel.Text
-    if not text then return nil end
-    
-    -- Verificar se o formato é "PRÓXIMO JOGO EM:\nMM:SS"
-    local minutes, seconds = string.match(text, "PRÓXIMO JOGO EM:\n(%d+):(%d+)")
-    
-    if minutes and seconds then
-        return tonumber(minutes) * 60 + tonumber(seconds)
+    if not timerLabel or not timerLabel:IsA("TextLabel") then
+        return nil
     end
     
+    local text = timerLabel.Text
+    if not text or text == "" then
+        return nil
+    end
+    
+    -- Imprimir o texto do timer para debug
+    print("Texto do timer: " .. text)
+    
+    -- Verificar se o formato é "PRÓXIMO JOGO EM:\nMM:SS" (PT-BR)
+    local minutes, seconds = string.match(text, "PRÓXIMO JOGO EM:\n(%d+):(%d+)")
+    
+    -- Verificar se o formato é "NEXT GAME IN:\nMM:SS" (EN)
+    if not minutes or not seconds then
+        minutes, seconds = string.match(text, "NEXT GAME IN:\n(%d+):(%d+)")
+    end
+    
+    -- Verificar qualquer formato que contenha dois números separados por :
+    if not minutes or not seconds then
+        minutes, seconds = string.match(text, "(%d+):(%d+)")
+    end
+    
+    if minutes and seconds then
+        local totalSeconds = tonumber(minutes) * 60 + tonumber(seconds)
+        print("Timer detectado: " .. minutes .. ":" .. seconds .. " (" .. totalSeconds .. " segundos)")
+        return totalSeconds
+    end
+    
+    print("Não foi possível extrair o tempo do timer")
     return nil
 end
 
@@ -359,26 +351,26 @@ local function startSakuraAutofarm()
         -- Detectar quando o minigame acabou de terminar
         if wasInMinigame and not minigameActive then
             sakuraMinigameJustEnded = true
-            debugPrint("Sakura: Minigame acabou de terminar.")
+            print("Sakura: Minigame acabou de terminar.")
         end
         wasInMinigame = minigameActive
 
         if not minigameActive then
             -- Se o minigame acabou de terminar, esperar 10 segundos
             if sakuraMinigameJustEnded then
-                debugPrint("Sakura: Esperando período de estabilização após minigame...")
+                print("Sakura: Esperando período de estabilização após minigame...")
                 unfreezePlayer()
                 cleanupSakuraPlatform()
                 
                 -- Esperar 10 segundos antes de teleportar
                 for i = 1, 10 do
                     if not sakuraRunning then break end
-                    debugPrint("Sakura: Aguardando: " .. i .. "/10 segundos")
+                    print("Sakura: Aguardando: " .. i .. "/10 segundos")
                     task.wait(1)
                 end
                 
                 sakuraMinigameJustEnded = false
-                debugPrint("Sakura: Período de espera concluído")
+                print("Sakura: Período de espera concluído")
                 inAnyMinigame = false
             end
             
@@ -444,81 +436,113 @@ local function startTearUpAutofarm()
     end
 end
 
--- Função principal para monitorar os timers e gerenciar teleportes
-local function monitorMinigameTimers()
-    while checkingForMinigames and running do
-        -- Verificar se já estamos em um minigame
-        if isAnyMinigameActive() or inAnyMinigame then
-            task.wait(1)
-            continue
-        end
+local function checkTimers()
+    -- Verificar se os timers existem
+    local sakuraTimerExists = pcall(function() return sakuraTimerLabel.Text ~= nil end)
+    local tearUpTimerExists = pcall(function() return tearUpTimerLabel.Text ~= nil end)
+    
+    if not sakuraTimerExists then
+        print("AVISO: Timer Sakura Swoop não encontrado!")
         
-        -- Obter os TimerLabels diretamente
-        local sakuraTimerLabel = getSakuraTimerLabel()
-        local tearUpTimerLabel = getTearUpTimerLabel()
-        
-        -- Obter os segundos dos timers
-        local sakuraSeconds = sakuraTimerLabel and getTimerSeconds(sakuraTimerLabel)
-        local tearUpSeconds = tearUpTimerLabel and getTimerSeconds(tearUpTimerLabel)
-        
-        -- Debug dos timers
-        if sakuraSeconds then
-            debugPrint("Timer Sakura: " .. sakuraSeconds .. " segundos")
-        end
-        
-        if tearUpSeconds then
-            debugPrint("Timer Tear Up: " .. tearUpSeconds .. " segundos")
-        end
-        
-        -- Verificar timers para teleportar
-        if sakuraSeconds and sakuraSeconds <= 30 then
-            debugPrint("⚠️ Sakura Swoop prestes a começar! Teleportando para zona de entrada.")
-            local joinZone = getSakuraJoinZonePath()
-            if joinZone then
-                teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
-                
-                -- Ativar o Sakura autofarm se não estiver ativo
-                if not sakuraRunning then
-                    sakuraRunning = true
-                    task.spawn(startSakuraAutofarm)
-                end
-                
-                -- Esperar até que o minigame comece
-                local waitTime = 0
-                while waitTime < 35 and not isSakuraMinigameActive() do
-                    task.wait(1)
-                    waitTime = waitTime + 1
-                end
+        -- Tentar encontrar por pesquisa de caminho
+        pcall(function()
+            local possibleLabel = workspace:FindFirstChild("Interiors", true)
+                and workspace.Interiors:FindFirstChild("MainMap!Default", true)
+                and workspace.Interiors["MainMap!Default"]:FindFirstChild("BlossomShakedownJoinZone", true)
+                and workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone:FindFirstChild("Billboard", true)
+                and workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Billboard:FindFirstChild("BillboardGui", true)
+                and workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Billboard.BillboardGui:FindFirstChild("TimerLabel", true)
+            
+            if possibleLabel then
+                sakuraTimerLabel = possibleLabel
+                print("Timer Sakura Swoop encontrado por busca!")
             end
-        elseif tearUpSeconds and tearUpSeconds <= 30 then
-            debugPrint("⚠️ Tear Up Toykyo prestes a começar! Teleportando para zona de entrada.")
-            local joinZone = getTearUpJoinZonePath()
-            if joinZone then
-                teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
-                
-                -- Ativar o Tear Up autofarm se não estiver ativo
-                if not tearUpRunning then
-                    tearUpRunning = true
-                    task.spawn(startTearUpAutofarm)
-                end
-                
-                -- Esperar até que o minigame comece
-                local waitTime = 0
-                while waitTime < 35 and not isTearUpMinigameActive() do
-                    task.wait(1)
-                    waitTime = waitTime + 1
-                end
-            end
-        end
-        
-        task.wait(1)  -- Verificar timers a cada segundo
+        end)
     end
+    
+    if not tearUpTimerExists then
+        print("AVISO: Timer Tear Up Toykyo não encontrado!")
+        
+        -- Tentar encontrar por pesquisa de caminho
+        pcall(function()
+            local possibleLabel = workspace:FindFirstChild("Interiors", true)
+                and workspace.Interiors:FindFirstChild("MainMap!Default", true)
+                and workspace.Interiors["MainMap!Default"]:FindFirstChild("TearUpToykyoJoinZone", true)
+                and workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone:FindFirstChild("Billboard", true)
+                and workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone.Billboard:FindFirstChild("BillboardGui", true)
+                and workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone.Billboard.BillboardGui:FindFirstChild("TimerLabel", true)
+            
+            if possibleLabel then
+                tearUpTimerLabel = possibleLabel
+                print("Timer Tear Up Toykyo encontrado por busca!")
+            end
+        end)
+    end
+    
+    -- Verificar os segundos restantes
+    local sakuraSeconds = sakuraTimerExists and getTimerSeconds(sakuraTimerLabel) or nil
+    local tearUpSeconds = tearUpTimerExists and getTimerSeconds(tearUpTimerLabel) or nil
+    
+    -- Imprimir informações de debug
+    if sakuraSeconds then
+        print("Sakura Swoop: " .. sakuraSeconds .. " segundos restantes")
+    else
+        print("Sakura Swoop: Timer não disponível")
+    end
+    
+    if tearUpSeconds then
+        print("Tear Up Toykyo: " .. tearUpSeconds .. " segundos restantes")
+    else
+        print("Tear Up Toykyo: Timer não disponível")
+    end
+    
+    return sakuraSeconds, tearUpSeconds
 end
 
 local function startWaitingPositionCycle()
     while running do
         -- Não executar se estiver em algum minigame ou prestes a entrar em um
-        if isAnyMinigameActive() or inAnyMinigame then
+        if inAnyMinigame then
+            print("Em minigame, pulando ciclo de posições de espera")
+            task.wait(1)
+            continue
+        end
+        
+        -- Verificar timers dos minigames
+        local sakuraSeconds, tearUpSeconds = checkTimers()
+        
+        if sakuraSeconds and sakuraSeconds <= 30 then
+            print("Sakura Swoop está prestes a começar! (" .. sakuraSeconds .. " segundos) Teleportando para a zona de entrada.")
+            local joinZone = getSakuraJoinZonePath()
+            if joinZone then
+                teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
+                print("Teleportado para zona de entrada Sakura Swoop")
+                -- Ativar o Sakura autofarm se não estiver ativo
+                if not sakuraRunning then
+                    sakuraRunning = true
+                    print("Ativando Sakura Swoop Autofarm")
+                    task.spawn(startSakuraAutofarm)
+                end
+            else
+                print("ERRO: Não foi possível encontrar a zona de entrada do Sakura Swoop")
+            end
+            task.wait(1)
+            continue
+        elseif tearUpSeconds and tearUpSeconds <= 30 then
+            print("Tear Up Toykyo está prestes a começar! (" .. tearUpSeconds .. " segundos) Teleportando para a zona de entrada.")
+            local joinZone = getTearUpJoinZonePath()
+            if joinZone then
+                teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
+                print("Teleportado para zona de entrada Tear Up Toykyo")
+                -- Ativar o Tear Up autofarm se não estiver ativo
+                if not tearUpRunning then
+                    tearUpRunning = true
+                    print("Ativando Tear Up Toykyo Autofarm")
+                    task.spawn(startTearUpAutofarm)
+                end
+            else
+                print("ERRO: Não foi possível encontrar a zona de entrada do Tear Up Toykyo")
+            end
             task.wait(1)
             continue
         end
@@ -526,54 +550,64 @@ local function startWaitingPositionCycle()
         -- Ciclo entre posições de espera
         local currentWaitPos = waitingPositions[currentWaitingPositionIndex]
         
-        debugPrint("Teleportando para posição de espera " .. currentWaitingPositionIndex)
+        print("Teleportando para posição de espera " .. currentWaitingPositionIndex)
         teleportPlayer(currentWaitPos.position)
         
         -- Esperar o tempo designado para esta posição
         local remainingTime = currentWaitPos.waitTime
-        while remainingTime > 0 and running and not isAnyMinigameActive() and not inAnyMinigame do
+        while remainingTime > 0 and running and not inAnyMinigame do
+            -- Verificar novamente os timers para não perder um minigame enquanto espera
+            local newSakuraSeconds, newTearUpSeconds = checkTimers()
+            
+            if (newSakuraSeconds and newSakuraSeconds <= 30) or (newTearUpSeconds and newTearUpSeconds <= 30) then
+                print("Timer baixo detectado durante espera, interrompendo ciclo")
+                break
+            end
+            
             task.wait(1)
             remainingTime = remainingTime - 1
         end
         
-        -- Avançar para a próxima posição se não estiver em um minigame
-        if not isAnyMinigameActive() and not inAnyMinigame then
-            currentWaitingPositionIndex = currentWaitingPositionIndex % #waitingPositions + 1
-        end
+        -- Avançar para a próxima posição
+        currentWaitingPositionIndex = currentWaitingPositionIndex % #waitingPositions + 1
     end
 end
 
--- Toggle único para controle completo
-w1:Toggle("Autofarm", "autocomp", false, function(toggled)
+-- Toggle principal para ativar/desativar todo o sistema
+w1:Toggle("Autofarm Completo", "autocomp", false, function(toggled)
     running = toggled
     
     if toggled then
+        print("=== AUTOFARM COMPLETO ATIVADO ===")
         -- Inicializar variáveis
         currentWaitingPositionIndex = 1
         waitingTimer = 0
-        inAnyMinigame = false
-        checkingForMinigames = true
+        inAnyMinigame = isAnyMinigameActive()
         
-        -- Iniciar o monitoramento de timers e o ciclo de posições de espera
-        task.spawn(monitorMinigameTimers)
-        task.spawn(startWaitingPositionCycle)
-        
-        -- Configurar para iniciar os autofarms conforme necessário
+        -- Iniciar verificação de timers e autofarms
         sakuraRunning = true
         tearUpRunning = true
         
-        debugPrint("Sistema de autofarm completo iniciado!")
+        if isSakuraMinigameActive() then
+            print("Já está no Sakura Swoop, iniciando autofarm específico")
+            task.spawn(startSakuraAutofarm)
+        elseif isTearUpMinigameActive() then
+            print("Já está no Tear Up Toykyo, iniciando autofarm específico")
+            task.spawn(startTearUpAutofarm)
+        else
+            print("Iniciando ciclo de posições de espera")
+            -- Iniciar o ciclo de posições de espera
+            task.spawn(startWaitingPositionCycle)
+        end
     else
+        print("=== AUTOFARM COMPLETO DESATIVADO ===")
         -- Desativar todos os subsistemas
-        checkingForMinigames = false
         sakuraRunning = false
         tearUpRunning = false
         
         -- Limpar plataformas e descongelar jogador
         unfreezePlayer()
         cleanupSakuraPlatform()
-        
-        debugPrint("Sistema de autofarm completo desativado!")
     end
 end)
 
