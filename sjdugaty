@@ -2,13 +2,13 @@ local TeleportService = game:GetService("TeleportService")
 
 -- Hook na função Teleport para evitar que o jogo force um rejoin
 local oldTeleport; oldTeleport = hookfunction(TeleportService.Teleport, function(...)
-    warn("Попытка телепортации заблокирована")
+    warn("Blyadddd")
     return -- Cancela a execução da função
 end)
 
 -- Hook na função TeleportToPlaceInstance
 local oldTeleportInstance; oldTeleportInstance = hookfunction(TeleportService.TeleportToPlaceInstance, function(...)
-    warn("Попытка телепортации в заблокированный экземпляр")
+    warn("Kurwaaaa")
     return -- Cancela a execução da função
 end)
 
@@ -20,36 +20,17 @@ local w1 = library:Window("Cherry Blossom Festival") -- Text
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 
 local firstPosition = Vector3.new(-2968, 5502, 11817)
 local secondPosition = Vector3.new(-3041, 5529, 11928)
-local afkPosition = Vector3.new(76, 38, -1322)
 
 local running = false
 local platformParts = {}
-
--- ⏱️ Lê o tempo do minigame (segundos)
-local function getTimeUntilMinigame()
-    local success, result = pcall(function()
-        local label = Workspace.Interiors["MainMap!Default"]
-            .BlossomShakedownJoinZone
-            .Billboard
-            .BillboardGui
-            .TimerLabel
-
-        if label and label.ContentText then
-            local minutes, seconds = string.match(label.ContentText, "(%d+):(%d+)")
-            if minutes and seconds then
-                return tonumber(minutes) * 60 + tonumber(seconds)
-            end
-        end
-        return nil
-    end)
-    return success and result or nil
-end
+local totalModelsPulled = 0
+local maxModelsToCollect = 40
+local collectionComplete = false
 
 local function getJoinZonePath()
     if Workspace:FindFirstChild("Interiors") 
@@ -187,7 +168,15 @@ local function getRingPickupsFolder()
 end
 
 local function pullModelsLoop()
-    while running and isMinigameActive() do
+    if collectionComplete then
+        print("Coleta já concluída. Esperando o minigame terminar.")
+        return
+    end
+    
+    print("Iniciando coleta de models. Limite: " .. maxModelsToCollect)
+    totalModelsPulled = 0
+    
+    while running and isMinigameActive() and totalModelsPulled < maxModelsToCollect do
         local char = LocalPlayer.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then 
             task.wait(0.5)
@@ -200,93 +189,124 @@ local function pullModelsLoop()
             continue
         end
 
-        local modelCount = 0
+        if totalModelsPulled >= maxModelsToCollect then
+            break
+        end
+
         pcall(function()
             for _, model in ipairs(folder:GetChildren()) do
-                if not running then break end
+                if not running or totalModelsPulled >= maxModelsToCollect then 
+                    break 
+                end
+                
                 if model:IsA("Model") and model.Name == "Model" then
-                    modelCount = modelCount + 1
                     local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
                     if part then
-                        pcall(function()
-                            model:SetPrimaryPartCFrame(char.HumanoidRootPart.CFrame)
-                        end)
+                        model:SetPrimaryPartCFrame(char.HumanoidRootPart.CFrame)
+                        totalModelsPulled = totalModelsPulled + 1
+                        print("Model trazido: " .. totalModelsPulled .. "/" .. maxModelsToCollect)
+                        
+                        task.wait(0.5)
+                        
+                        if totalModelsPulled >= maxModelsToCollect then
+                            print("Limite de " .. maxModelsToCollect .. " models atingido. Parando.")
+                            collectionComplete = true
+                            break
+                        end
                     end
-                    task.wait(0.05)
                 end
             end
         end)
-
-        task.wait(modelCount == 0 and 0.5 or 0.1)
+        
+        if totalModelsPulled >= maxModelsToCollect then
+            collectionComplete = true
+            break
+        end
+        
+        task.wait(1)
     end
+    
+    collectionComplete = true
+    print("Coleta de models finalizada. Total coletado: " .. totalModelsPulled)
 end
 
--- Clica a cada 10s na AFK Zone
-local function stayAFKLoop()
-    while running do
-        local timeLeft = getTimeUntilMinigame()
-        if not timeLeft or timeLeft <= 30 then break end
+-- Variável para rastrear quando o minigame terminou
+local minigameJustEnded = false
 
-        -- Simula clique no centro da tela
-        VirtualInputManager:SendMouseButtonEvent(500, 500, 0, true, game, 0)
-        VirtualInputManager:SendMouseButtonEvent(500, 500, 0, false, game, 0)
-
-        task.wait(10)
-    end
-end
-
--- 🌸 Autofarm principal
 local function startAutofarm()
-    local waitingForMinigame = true
-    local failedAttempts = 0
+    local wasInMinigame = false
     
     while running do
         local minigameActive = isMinigameActive()
+        
+        -- Detectar quando o minigame acabou de terminar
+        if wasInMinigame and not minigameActive then
+            minigameJustEnded = true
+            print("Minigame acabou de terminar.")
+        end
+        wasInMinigame = minigameActive
 
         if not minigameActive then
-            local timeLeft = getTimeUntilMinigame()
-            if timeLeft and timeLeft <= 30 then
-                local joinZone = getJoinZonePath()
-                if joinZone then
-                    teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
+            -- Se o minigame acabou de terminar, esperar 10 segundos
+            if minigameJustEnded then
+                print("Esperando período de estabilização após minigame...")
+                unfreezePlayer()
+                cleanupPlatform()
+                
+                -- Esperar 10 segundos antes de teleportar
+                for i = 1, 10 do
+                    if not running then break end
+                    print("Aguardando: " .. i .. "/10 segundos")
+                    task.wait(1)
                 end
-            else
-                teleportPlayer(afkPosition)
-                task.spawn(stayAFKLoop)
+                
+                minigameJustEnded = false
+                print("Período de espera concluído, teleportando para zona de entrada")
+            end
+            
+            -- Resetar variáveis quando não estiver no minigame
+            totalModelsPulled = 0
+            collectionComplete = false
+            
+            -- Teleportar para a zona de entrada do minigame
+            local joinZone = getJoinZonePath()
+            if joinZone then
+                teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
             end
 
             task.wait(2)
         else
-            teleportPlayer(firstPosition)
-            task.wait(1)
-
-            teleportPlayer(secondPosition)
-            createSafePlatform(secondPosition)
-            task.wait(0.3)
-
-            simulateJump()
-            task.wait(0.3)
-
-            freezePlayer()
-
-            local taskId = task.spawn(pullModelsLoop)
-
-            while running and isMinigameActive() do
-                if taskId and coroutine.status(taskId) ~= "running" then
-                    taskId = task.spawn(pullModelsLoop)
-                end
+            -- Só executa o setup e coleta se ainda não tiver coletado
+            if not collectionComplete then
+                -- Resetar contadores para o novo minigame
+                totalModelsPulled = 0
+                collectionComplete = false
+                minigameJustEnded = false
+                
+                teleportPlayer(firstPosition)
                 task.wait(1)
+
+                teleportPlayer(secondPosition)
+                createSafePlatform(secondPosition)
+                task.wait(0.3)
+
+                simulateJump()
+                task.wait(0.3)
+
+                freezePlayer()
+
+                -- Executar a coleta uma única vez
+                pullModelsLoop()
             end
 
-            unfreezePlayer()
-            cleanupPlatform()
-            task.wait(1)
-
-            local joinZone = getJoinZonePath()
-            if joinZone then
-                teleportPlayer(joinZone.Position + Vector3.new(0, 3, 0))
+            -- Verificar se o minigame ainda está ativo
+            if isMinigameActive() then
+                -- Continuar esperando na plataforma segura
+                task.wait(3)
             else
-                teleportPlayer(firstPosition)
+                -- Não fazer nada aqui - deixar o loop detectar o fim do minigame
+                -- na próxima iteração para acionar o delay
+                task.wait(1)
             end
         end
 
@@ -294,11 +314,16 @@ local function startAutofarm()
     end
 end
 
--- 🔘 Toggle com biblioteca w1 (se necessário, substitua pelo seu sistema de UI)
+-- 🔘 Toggle com biblioteca w1 (substitua pela sua UI se necessário)
 w1:Toggle("Sakura Swoop Autofarm", "maf", false, function(toggled)
     running = toggled
 
     if toggled then
+        -- Resetar variáveis ao ligar o script
+        totalModelsPulled = 0
+        collectionComplete = false
+        minigameJustEnded = false
+        
         pcall(function()
             task.spawn(startAutofarm)
         end)
@@ -308,197 +333,85 @@ w1:Toggle("Sakura Swoop Autofarm", "maf", false, function(toggled)
     end
 end)
 
-w1:Button(
-    "Blossoms Tracker",
-function() -- Blossom Profit Tracker - English + Sakura Themed + Accurate Profit Calculation
-
 local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local root = char:WaitForChild("HumanoidRootPart")
+-- Config
+local joinZone = workspace.Interiors["MainMap!Default"].TearUpToykyoJoinZone.Collider
+local safeReturnPos = Vector3.new(112, 41, -1365) -- posição segura após minigame
 
-local Workspace = game:GetService("Workspace")
-
--- Variables
-local totalProfit = 0
-local gamesPlayed = 0
-local blossomsBeforeGame = 0
-local inGame = false
-
--- Utility: Get player's current blossom count
-local function getCurrentBlossoms()
-    local amountLabel = Player:FindFirstChild("PlayerGui")
-        and Player.PlayerGui:FindFirstChild("AltCurrencyIndicatorApp")
-        and Player.PlayerGui.AltCurrencyIndicatorApp:FindFirstChild("CurrencyIndicator")
-        and Player.PlayerGui.AltCurrencyIndicatorApp.CurrencyIndicator:FindFirstChild("Container")
-        and Player.PlayerGui.AltCurrencyIndicatorApp.CurrencyIndicator.Container:FindFirstChild("Amount")
-
-    if amountLabel and amountLabel:IsA("TextLabel") then
-        local text = amountLabel.ContentText or amountLabel.Text or "0"
-        text = tostring(text):gsub("[^%d]", "")
-        return tonumber(text) or 0
-    end
-
-    warn("Failed to read blossom amount")
-    return 0
+-- Void protection
+local function isSafe(pos)
+    local rayOrigin = pos + Vector3.new(0, 5, 0)
+    local rayDirection = Vector3.new(0, -100, 0)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {player.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+    return result ~= nil
 end
 
--- Sakura Theme Colors
-local color1 = Color3.fromRGB(255, 220, 235)
-local color2 = Color3.fromRGB(255, 175, 200)
-local textColor = Color3.fromRGB(80, 20, 60)
+local function teleportTo(pos, ignoreSafety)
+    if ignoreSafety or isSafe(pos) then
+        root.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+    end
+end
 
--- Create main UI
-local function createMainUI()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "BlossomTrackerUI"
-    gui.Parent = Player:WaitForChild("PlayerGui")
-    gui.ResetOnSpawn = false
-    gui.DisplayOrder = 1000
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 360, 0, 440)
-    frame.Position = UDim2.new(0.5, -180, 0.5, -220)
-    frame.BackgroundColor3 = color1
-    frame.BorderSizePixel = 0
-    frame.Parent = gui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 20)
-    corner.Parent = frame
-
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, color1),
-        ColorSequenceKeypoint.new(1, color2)
-    })
-    gradient.Rotation = 45
-    gradient.Parent = frame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0.12, 0)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "🌸 Blossom Tracker 🌸"
-    title.Font = Enum.Font.GothamBold
-    title.TextScaled = true
-    title.TextColor3 = textColor
-    title.Parent = frame
-
-    local gamesPlayedLabel = Instance.new("TextLabel")
-    gamesPlayedLabel.Size = UDim2.new(1, -40, 0.12, 0)
-    gamesPlayedLabel.Position = UDim2.new(0, 20, 0.2, 0)
-    gamesPlayedLabel.BackgroundTransparency = 1
-    gamesPlayedLabel.Text = "Games Played: 0"
-    gamesPlayedLabel.Font = Enum.Font.Gotham
-    gamesPlayedLabel.TextScaled = true
-    gamesPlayedLabel.TextColor3 = textColor
-    gamesPlayedLabel.Parent = frame
-
-    local profitLabel = Instance.new("TextLabel")
-    profitLabel.Size = UDim2.new(1, -40, 0.12, 0)
-    profitLabel.Position = UDim2.new(0, 20, 0.35, 0)
-    profitLabel.BackgroundTransparency = 1
-    profitLabel.Text = "Profit: 0 Blossoms"
-    profitLabel.Font = Enum.Font.Gotham
-    profitLabel.TextScaled = true
-    profitLabel.TextColor3 = textColor
-    profitLabel.Parent = frame
-
-    local timerLabel = Instance.new("TextLabel")
-    timerLabel.Size = UDim2.new(1, -40, 0.12, 0)
-    timerLabel.Position = UDim2.new(0, 20, 0.5, 0)
-    timerLabel.BackgroundTransparency = 1
-    timerLabel.Text = "Timer: N/A"
-    timerLabel.Font = Enum.Font.Gotham
-    timerLabel.TextScaled = true
-    timerLabel.TextColor3 = textColor
-    timerLabel.Parent = frame
-
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, -40, 0.12, 0)
-    statusLabel.Position = UDim2.new(0, 20, 0.65, 0)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = "Status: Waiting..."
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.TextScaled = true
-    statusLabel.TextColor3 = textColor
-    statusLabel.Parent = frame
-
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -40, 0, 10)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-    closeBtn.Text = "X"
-    closeBtn.TextScaled = true
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.Parent = frame
-
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(1, 0)
-    closeCorner.Parent = closeBtn
-
-    closeBtn.MouseButton1Click:Connect(function()
-        gui:Destroy()
-    end)
-
-    -- Performance optimization: disable textures and shadows
-    for _, desc in ipairs(Workspace:GetDescendants()) do
-        if desc:IsA("Decal") or desc:IsA("Texture") then
-            desc:Destroy()
-        elseif desc:IsA("Part") or desc:IsA("MeshPart") then
-            desc.CastShadow = false
+local function isInMinigame()
+    for _, interior in pairs(workspace.Interiors:GetChildren()) do
+        if interior.Name:match("^KaijuStompMinigame::") then
+            return true
         end
     end
+    return false
+end
 
-    -- Update loop
-    RunService.Heartbeat:Connect(function()
-        if not gui.Parent then return end
-
-        -- Update timer label
-        local timerPath = Workspace:FindFirstChild("Interiors")
-            and Workspace.Interiors:FindFirstChild("MainMap!Default")
-            and Workspace.Interiors["MainMap!Default"]:FindFirstChild("BlossomShakedownJoinZone")
-            and Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone:FindFirstChild("Billboard")
-            and Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Billboard:FindFirstChild("BillboardGui")
-            and Workspace.Interiors["MainMap!Default"].BlossomShakedownJoinZone.Billboard.BillboardGui:FindFirstChild("TimerLabel")
-
-        timerLabel.Text = "Timer: " .. ((timerPath and timerPath.Text) or "N/A")
-
-        -- Detect minigame state
-        local currentlyInGame = Workspace:FindFirstChild("Interiors") and Workspace.Interiors:FindFirstChild("BlossomShakedownInterior") ~= nil
-
-        if currentlyInGame and not inGame then
-            inGame = true
-            blossomsBeforeGame = getCurrentBlossoms()
-            statusLabel.Text = "Status: In Game"
-
-        elseif not currentlyInGame and inGame then
-            inGame = false
-            statusLabel.Text = "Status: Calculating..."
-            task.delay(7, function()
-                local blossomsAfter = getCurrentBlossoms()
-                local gained = blossomsAfter - blossomsBeforeGame
-                if gained > 0 then
-                    totalProfit += gained
+local function teleportToTrees()
+    while isInMinigame() and _G.kaijuAutofarm do
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("Model") and v.Name == "Tree1" then
+                local cf = v:GetModelCFrame()
+                local targetPos = cf.Position
+                if isSafe(targetPos) then
+                    root.CFrame = cf + Vector3.new(0, 3, 0)
+                    task.wait(0.25)
                 end
-                gamesPlayed += 1
-                gamesPlayedLabel.Text = "Games Played: " .. gamesPlayed
-                profitLabel.Text = "Profit: " .. totalProfit .. " Blossoms"
-                statusLabel.Text = "Status: Waiting..."
-            end)
-
-        elseif currentlyInGame then
-            statusLabel.Text = "Status: In Game"
-        else
-            statusLabel.Text = "Status: Waiting..."
+            end
         end
-    end)
+        task.wait(0.5)
+    end
 end
 
--- Run it
-createMainUI()
+w1:Toggle(
+    "Tear Up Toykyo Autofarm",
+    "frz",
+    false,
+    function(toggled)
+        if toggled then
+            _G.kaijuAutofarm = true
+            
+            -- Script principal de autofarm
+            task.spawn(function()
+                while _G.kaijuAutofarm do
+                    if isInMinigame() then
+                        teleportToTrees()
+                        repeat task.wait() until not isInMinigame() or not _G.kaijuAutofarm
+                        -- Proteção contra void: volta pra zona segura logo após o minigame
+                        teleportTo(safeReturnPos, true) 
+                        task.wait(2)
+                    else
+                        -- Sempre ficar na zona de entrada do minigame quando não estiver em um minigame
+                        teleportTo(joinZone.Position)
+                        task.wait(5)
+                    end
+                end
+            end)
+        else
+            _G.kaijuAutofarm = false
+        end
     end
 )
 
@@ -527,90 +440,122 @@ w1:Button(
     "wanna support me?",
     function()
         local Players = game:GetService("Players")
+        local TweenService = game:GetService("TweenService")
         local player = Players.LocalPlayer
         local playerGui = player:FindFirstChild("PlayerGui")
-        
-        if not playerGui then return end -- Garante que o PlayerGui existe
-        
-        -- Criar a tela principal (Frame)
+        if not playerGui then return end
+
+        -- Criar GUI principal
         local screenGui = Instance.new("ScreenGui", playerGui)
+        screenGui.Name = "SupportPrompt"
         screenGui.ResetOnSpawn = false
-        
+
+        -- Frame principal
         local frame = Instance.new("Frame", screenGui)
-        frame.Size = UDim2.new(0, 250, 0, 150)
+        frame.Size = UDim2.new(0, 0, 0, 0) -- começa pequeno
         frame.Position = UDim2.new(0.5, -125, 0.4, 0)
-        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        frame.BackgroundTransparency = 0.2
         frame.BorderSizePixel = 0
-        frame.BackgroundTransparency = 0.1
-        
-        -- Criar o título
+
+        -- Arredondar bordas
+        local corner = Instance.new("UICorner", frame)
+        corner.CornerRadius = UDim.new(0, 12)
+
+        -- Aparecer com animação
+        TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 300, 0, 160)
+        }):Play()
+
+        -- Título
         local title = Instance.new("TextLabel", frame)
-        title.Size = UDim2.new(1, 0, 0.4, 0)
+        title.Size = UDim2.new(1, 0, 0.3, 0)
         title.Position = UDim2.new(0, 0, 0, 0)
         title.Text = "For real?"
-        title.TextSize = 20
-        title.Font = Enum.Font.SourceSansBold
+        title.TextSize = 24
+        title.Font = Enum.Font.GothamBold
         title.TextColor3 = Color3.fromRGB(255, 255, 255)
         title.BackgroundTransparency = 1
-        
-        -- Criar o botão "Yes"
-        local yesButton = Instance.new("TextButton", frame)
-        yesButton.Size = UDim2.new(0.45, 0, 0.3, 0)
-        yesButton.Position = UDim2.new(0.05, 0, 0.6, 0)
-        yesButton.Text = "Yes!"
-        yesButton.TextSize = 18
-        yesButton.Font = Enum.Font.SourceSansBold
-        yesButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        yesButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-        yesButton.BorderSizePixel = 0
-        yesButton.AutoButtonColor = true
-        
-        -- Criar o botão "No"
-        local noButton = Instance.new("TextButton", frame)
-        noButton.Size = UDim2.new(0.45, 0, 0.3, 0)
-        noButton.Position = UDim2.new(0.5, 0, 0.6, 0)
-        noButton.Text = "No :("
-        noButton.TextSize = 18
-        noButton.Font = Enum.Font.SourceSansBold
-        noButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        noButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-        noButton.BorderSizePixel = 0
-        noButton.AutoButtonColor = true
-        
-        -- Função para quando o jogador clicar "Yes"
-        yesButton.MouseButton1Click:Connect(function()
+
+        -- Botões container
+        local buttonHolder = Instance.new("Frame", frame)
+        buttonHolder.Size = UDim2.new(1, 0, 0.5, 0)
+        buttonHolder.Position = UDim2.new(0, 0, 0.5, 0)
+        buttonHolder.BackgroundTransparency = 1
+
+        local layout = Instance.new("UIListLayout", buttonHolder)
+        layout.FillDirection = Enum.FillDirection.Horizontal
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        layout.VerticalAlignment = Enum.VerticalAlignment.Center
+        layout.Padding = UDim.new(0, 10)
+
+        local function createButton(text, color)
+            local button = Instance.new("TextButton")
+            button.Size = UDim2.new(0.45, 0, 1, 0)
+            button.Text = text
+            button.TextSize = 20
+            button.Font = Enum.Font.GothamBold
+            button.TextColor3 = Color3.new(1,1,1)
+            button.BackgroundColor3 = color
+            button.AutoButtonColor = true
+            button.BorderSizePixel = 0
+
+            local btnCorner = Instance.new("UICorner", button)
+            btnCorner.CornerRadius = UDim.new(0, 8)
+
+            return button
+        end
+
+        local yesBtn = createButton("Yes!", Color3.fromRGB(0, 200, 100))
+        local noBtn = createButton("No :(", Color3.fromRGB(200, 50, 50))
+
+        yesBtn.Parent = buttonHolder
+        noBtn.Parent = buttonHolder
+
+        -- Função para destruir com animação
+        local function destroyAnimated(guiElement)
+            TweenService:Create(guiElement, TweenInfo.new(0.3), {
+                Size = UDim2.new(0, 0, 0, 0)
+            }):Play()
+            task.wait(0.35)
+            guiElement:Destroy()
+        end
+
+        -- Clique em "Yes!"
+        yesBtn.MouseButton1Click:Connect(function()
             if setclipboard then
                 setclipboard("https://link-center.net/1182489/sakura-swoop-autofarm")
             end
-        
-            -- Remover a GUI original
-            frame:Destroy()
-        
-            -- Criar uma nova GUI de agradecimento
-            local thankYouFrame = Instance.new("Frame", screenGui)
-            thankYouFrame.Size = UDim2.new(0, 350, 0, 100)
-            thankYouFrame.Position = UDim2.new(0.5, -125, 0.4, 0)
-            thankYouFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            thankYouFrame.BorderSizePixel = 0
-            thankYouFrame.BackgroundTransparency = 0.1
-        
-            local thankYouLabel = Instance.new("TextLabel", thankYouFrame)
-            thankYouLabel.Size = UDim2.new(1, 0, 1, 0)
-            thankYouLabel.Text = "YAY, linkvertise copied, paste into your browser!"
-            thankYouLabel.TextSize = 18
-            thankYouLabel.Font = Enum.Font.SourceSansBold
-            thankYouLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-            thankYouLabel.BackgroundTransparency = 1
-        
-            -- Aguarde 3 segundos e remova a GUI de agradecimento
+            destroyAnimated(frame)
+
+            -- Nova tela de agradecimento
+            local thanks = Instance.new("TextLabel", screenGui)
+            thanks.Size = UDim2.new(0, 0, 0, 0)
+            thanks.Position = UDim2.new(0.5, -150, 0.4, 0)
+            thanks.Text = "YAY! Link copied to clipboard :)"
+            thanks.TextSize = 22
+            thanks.Font = Enum.Font.GothamBold
+            thanks.TextColor3 = Color3.fromRGB(255, 255, 255)
+            thanks.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            thanks.BackgroundTransparency = 0.2
+            thanks.BorderSizePixel = 0
+
+            local corner2 = Instance.new("UICorner", thanks)
+            corner2.CornerRadius = UDim.new(0, 10)
+
+            TweenService:Create(thanks, TweenInfo.new(0.3), {
+                Size = UDim2.new(0, 350, 0, 60)
+            }):Play()
+
             task.wait(5)
+            destroyAnimated(thanks)
             screenGui:Destroy()
         end)
-        
-        -- Função para quando o jogador clicar "No"
-        noButton.MouseButton1Click:Connect(function()
-            screenGui:Destroy()
-        end)        
+
+        -- Clique em "No"
+        noBtn.MouseButton1Click:Connect(function()
+            destroyAnimated(frame)
+        end)
     end
 )
 
