@@ -24,7 +24,7 @@ local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local waitPos = Vector3.new(108, 38, -1348)
+local waitPos = Vector3.new(30, 31, -1499)
 local sakuraFarmRunning = false
 local kaijuFarmRunning = false
 local farmEnabled = false
@@ -44,13 +44,12 @@ end
 -- Parse Timer
 local function parseTimer(text)
 	if not text then return math.huge end
-	if text:find("GAME IS STARTING") then
-		return 0
+
+	local mm, ss = text:match("(%d+):(%d+)")
+	if mm and ss then
+		return tonumber(mm) * 60 + tonumber(ss)
 	end
-	if text:find("NEXT GAME IN") then
-		local m, s = text:match("(%d+):(%d+)")
-		return m and s and (tonumber(m) * 60 + tonumber(s)) or math.huge
-	end
+
 	return math.huge
 end
 
@@ -73,53 +72,77 @@ end
 
 -- Autofarm Sakura
 local function startSakuraFarm()
-	if sakuraFarmRunning then return end
-	sakuraFarmRunning = true
-
-	local firstPos = Vector3.new(-2968, 5502, 11817)
-	local secondPos = Vector3.new(-3041, 5529, 11928)
-	local collected = 0
-	local maxModels = 40
-
-	hrp.CFrame = CFrame.new(firstPos)
-	task.wait(1)
-	hrp.CFrame = CFrame.new(secondPos)
-
-	local bodyPos = Instance.new("BodyPosition")
-	bodyPos.Position = hrp.Position
-	bodyPos.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-	bodyPos.P = 1e5
-	bodyPos.D = 1000
-	bodyPos.Name = "Freeze"
-	bodyPos.Parent = hrp
-
-	while isSakuraActive() do
-		if collected >= maxModels then
-			task.wait(1)
-			continue
-		end
-
-		local folder = Workspace.Interiors.BlossomShakedownInterior:FindFirstChild("RingPickups")
-		if folder then
-			for _, model in ipairs(folder:GetChildren()) do
-				if collected >= maxModels then break end
-				if model:IsA("Model") and model.Name == "Model" then
-					local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-					if part then
-						model:SetPrimaryPartCFrame(hrp.CFrame)
-						collected += 1
-						task.wait(0.5)
-					end
-				end
-			end
-		end
-		task.wait(1)
-	end
-
-	bodyPos:Destroy()
-	hrp.CFrame = CFrame.new(waitPos)
-	sakuraFarmRunning = false
+    if sakuraFarmRunning then return end
+    sakuraFarmRunning = true
+    
+    local firstPos = Vector3.new(-2968, 5502, 11817)
+    local secondPos = Vector3.new(-3041, 5529, 11928)
+    local collected = 0
+    local maxModels = 40
+    local collectedModels = {}
+    
+    -- Teleporta para a área e espera
+    hrp.CFrame = CFrame.new(firstPos)
+    task.wait(1)
+    hrp.CFrame = CFrame.new(secondPos)
+    task.wait(0.5)
+    
+    -- Congela o jogador
+    local freeze = Instance.new("BodyPosition")
+    freeze.Name = "Freeze"
+    freeze.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    freeze.Position = hrp.Position
+    freeze.P = 1e5
+    freeze.D = 1e4
+    freeze.Parent = hrp
+    
+    local startTime = os.time()
+    local maxWaitTime = 60 -- Tempo máximo em segundos para tentar coletar
+    
+    while isSakuraActive() and collected < maxModels and (os.time() - startTime) < maxWaitTime do
+        local folder = Workspace.Interiors.BlossomShakedownInterior:FindFirstChild("RingPickups")
+        
+        if folder then
+            local models = folder:GetChildren()
+            local foundNew = false
+            
+            for _, model in ipairs(models) do
+                if model:IsA("Model") and model.Name == "Model" and not collectedModels[model] then
+                    local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                    
+                    if part then
+                        if collected >= maxModels then
+                            break
+                        end
+                        
+                        model:SetPrimaryPartCFrame(hrp.CFrame)
+                        collectedModels[model] = true
+                        collected = collected + 1
+                        foundNew = true
+                        print("Sakura: " .. collected .. "/" .. maxModels)
+                        task.wait(0.3)
+                    end
+                end
+            end
+            
+            -- Se não encontramos nenhum novo modelo e ainda não coletamos o suficiente
+            if not foundNew and collected < maxModels then
+                -- Espera um pouco mais para ver se novos modelos aparecem
+                task.wait(1)
+            end
+        else
+            task.wait(1) -- Espera caso a pasta não seja encontrada
+        end
+    end
+    
+    print("Coleta finalizada: " .. collected .. " modelos coletados de " .. maxModels .. " desejados")
+    
+    -- Libera o personagem e volta para posição de espera
+    freeze:Destroy()
+    hrp.CFrame = CFrame.new(waitPos)
+    sakuraFarmRunning = false
 end
+
 
 -- Autofarm Kaiju
 local function startKaijuFarm()
@@ -245,4 +268,4 @@ w1:Button(
     end
 ) -- Text, Callback
 
-w1:Label("0 x 3 7") -- Text
+w1:Label("blyad") -- Text
