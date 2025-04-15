@@ -24,7 +24,7 @@ local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local waitPos = Vector3.new(30, 31, -1499)
+local waitPos = Vector3.new(108, 38, -1351)
 local sakuraFarmRunning = false
 local kaijuFarmRunning = false
 local farmEnabled = false
