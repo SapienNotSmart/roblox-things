@@ -146,25 +146,25 @@ end
 
 -- Autofarm Kaiju
 local function startKaijuFarm()
-	if kaijuFarmRunning then return end
-	kaijuFarmRunning = true
+    if kaijuFarmRunning then return end
+    kaijuFarmRunning = true
 
-	while isKaijuActive() do
-		for _, v in ipairs(Workspace:GetDescendants()) do
-			if v:IsA("Model") and v.Name == "Tree1" then
-				local cf = v:GetModelCFrame()
-				local pos = cf.Position
-				if isSafe(pos) then
-					hrp.CFrame = cf + Vector3.new(0, 3, 0)
-					task.wait(0.25)
-				end
-			end
-		end
-		task.wait(0.5)
-	end
+    while isKaijuActive() do
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            if v:IsA("Model") and (v.Name == "Tree1" or v.Name == "BuildingA" or v.Name == "Blossom1" or v.Name == "Blossom2" or v.Name == "Blossom3" or v.Name == "Blossom4") then
+                local cf = v:GetModelCFrame()
+                local pos = cf.Position
+                if isSafe(pos) then
+                    hrp.CFrame = cf + Vector3.new(0, 3, 0)
+                    task.wait(0.25)
+                end
+            end
+        end
+        task.wait(0.5)
+    end
 
-	hrp.CFrame = CFrame.new(waitPos)
-	kaijuFarmRunning = false
+    hrp.CFrame = CFrame.new(waitPos)
+    kaijuFarmRunning = false
 end
 
 -- Loop principal
