@@ -257,6 +257,116 @@ game:GetService("StarterGui"):SetCore("SendNotification", {
 end
 )
 
+w1:Button(
+    "Open Auto Buy Panel",
+    function()
+		local executor = identifyexecutor and identifyexecutor() or "Desconhecido"
+
+		if executor == "Xeno" then
+			game:GetService("StarterGui"):SetCore("SendNotification", {
+				Title = "Xeno doesn't support",
+				Text = "heheheha",
+				Button1 = "OK",
+				Duration = 5
+			})
+		else
+			local Players = game:GetService("Players")
+			local LocalPlayer = Players.LocalPlayer
+			
+			local ScreenGui = Instance.new("ScreenGui")
+			local MainFrame = Instance.new("Frame")
+			local Title = Instance.new("TextLabel")
+			local CloseButton = Instance.new("TextButton")
+			local ToggleList = {}
+			
+			ScreenGui.Name = "AutoBuyUI"
+			ScreenGui.ResetOnSpawn = false
+			ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+			
+			-- Main UI Frame
+			MainFrame.Name = "MainFrame"
+			MainFrame.Parent = ScreenGui
+			MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+			MainFrame.Size = UDim2.new(0, 220, 0, 300)
+			MainFrame.Position = UDim2.new(0.4, 0, 0.35, 0)
+			MainFrame.BorderSizePixel = 0
+			MainFrame.BackgroundTransparency = 0.1
+			MainFrame.Active = true
+			MainFrame.Draggable = true -- habilita arrastar
+			
+			-- Título
+			Title.Name = "Title"
+			Title.Parent = MainFrame
+			Title.Size = UDim2.new(1, -30, 0, 30)
+			Title.Position = UDim2.new(0, 10, 0, 0)
+			Title.Text = "Auto Buy Panel"
+			Title.TextColor3 = Color3.new(1, 1, 1)
+			Title.TextSize = 18
+			Title.Font = Enum.Font.GothamBold
+			Title.BackgroundTransparency = 1
+			Title.TextXAlignment = Enum.TextXAlignment.Left
+			
+			-- Botão de Fechar
+			CloseButton.Name = "CloseButton"
+			CloseButton.Parent = MainFrame
+			CloseButton.Size = UDim2.new(0, 20, 0, 20)
+			CloseButton.Position = UDim2.new(1, -25, 0, 5)
+			CloseButton.Text = "X"
+			CloseButton.Font = Enum.Font.GothamBold
+			CloseButton.TextSize = 14
+			CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+			CloseButton.TextColor3 = Color3.new(1, 1, 1)
+			CloseButton.BorderSizePixel = 0
+			CloseButton.MouseButton1Click:Connect(function()
+				MainFrame.Visible = false
+			end)
+			
+			-- Função para criar os toggles de compra
+			local function createToggle(index, name)
+				local button = Instance.new("TextButton")
+				button.Parent = MainFrame
+				button.Size = UDim2.new(1, -20, 0, 30)
+				button.Position = UDim2.new(0, 10, 0, 40 + ((index - 1) * 35))
+				button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+				button.BorderSizePixel = 0
+				button.Text = "❌ " .. name
+				button.Font = Enum.Font.Gotham
+				button.TextColor3 = Color3.fromRGB(255, 100, 100)
+				button.TextSize = 14
+			
+				local enabled = false
+				button.MouseButton1Click:Connect(function()
+					enabled = not enabled
+					if enabled then
+						button.Text = "✅ " .. name
+						button.TextColor3 = Color3.fromRGB(100, 255, 100)
+					else
+						button.Text = "❌ " .. name
+						button.TextColor3 = Color3.fromRGB(255, 100, 100)
+					end
+					-- Aqui você pode adicionar a lógica real de auto buy
+				end)
+			
+				table.insert(ToggleList, button)
+			end
+			
+			-- Lista de opções de compra
+			local buyOptions = {
+				"Buy Kaijunior Box",
+				"Buy Bakeneko",
+				"Buy Kage Crow",
+				"Buy Kappakid",
+				"Buy Super Saru",
+				"Buy Capsule"
+			}
+			
+			for i, item in ipairs(buyOptions) do
+				createToggle(i, item)
+			end
+		end
+    end
+)
+
 w1:Label("YT: PabloScripts21") -- Text
 
 w1:Button(
