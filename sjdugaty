@@ -238,6 +238,62 @@ w1:Toggle(
 	end
 )
 
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local function getRoot()
+	local char = player.Character or player.CharacterAdded:Wait()
+	return char:FindFirstChild("HumanoidRootPart")
+end
+
+local collectingEggs = false
+
+w1:Toggle(
+    "Auto Collect Eggs", 
+    "frz",
+    false,
+    function(toggled)
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Tell me if you find any bugs in this function",
+            Text = "heheheha",
+            Button1 = "OK",
+            Duration = 5
+        })
+
+        collectingEggs = toggled
+        task.wait(3)
+
+        if toggled then
+            task.spawn(function()
+                while collectingEggs do
+                    pcall(function()
+                        local eggBin = workspace:FindFirstChild("Interiors")
+                            and workspace.Interiors:FindFirstChild("MainMap!Default")
+                            and workspace.Interiors["MainMap!Default"]:FindFirstChild("Event")
+                            and workspace.Interiors["MainMap!Default"].Event:FindFirstChild("EggHuntEggBin")
+
+                        if eggBin and eggBin:IsA("Folder") then
+                            local root = getRoot()
+                            if root then
+                                for _, obj in pairs(eggBin:GetChildren()) do
+                                    if obj:IsA("Model") and obj.PrimaryPart then
+                                        obj:SetPrimaryPartCFrame(
+                                            root.CFrame + Vector3.new(math.random(-3, 3), 0, math.random(-3, 3))
+                                        )
+                                    elseif obj:IsA("BasePart") then
+                                        obj.CFrame = root.CFrame + Vector3.new(math.random(-3, 3), 0, math.random(-3, 3))
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.25)
+                end
+            end)
+        end
+    end
+)
+
 w1:Button(
     "Anti-AFK",
     function()
