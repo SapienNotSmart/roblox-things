@@ -143,24 +143,61 @@ local function startSakuraFarm()
     sakuraFarmRunning = false
 end
 
-
 -- Autofarm Kaiju
 local function startKaijuFarm()
     if kaijuFarmRunning then return end
     kaijuFarmRunning = true
 
+    local startTime = os.clock()
+    local visited = {}
+
+    local highValueModels = {
+        BuildingD3 = true,
+        BuildingD2 = true,
+        BuildingC = true,
+        -- pode adicionar mais aqui depois
+    }
+
+    local lowValueModels = {
+        Tree1 = true,
+        Blossom1 = true,
+        Blossom2 = true,
+        Blossom3 = true,
+        Blossom4 = true,
+        BuildingA = true,
+    }
+
     while isKaijuActive() do
+        local elapsed = os.clock() - startTime
+        local useHighPriority = elapsed >= 60
+
         for _, v in ipairs(Workspace:GetDescendants()) do
-            if v:IsA("Model") and (v.Name == "Tree1" or v.Name == "BuildingA" or v.Name == "Blossom1" or v.Name == "Blossom2" or v.Name == "Blossom3" or v.Name == "Blossom4") then
-                local cf = v:GetModelCFrame()
-                local pos = cf.Position
-                if isSafe(pos) then
-                    hrp.CFrame = cf + Vector3.new(0, 3, 0)
-                    task.wait(0.25)
+            if v:IsA("Model") and v.PrimaryPart then
+                local modelName = v.Name
+
+                if not visited[v:GetDebugId()] then
+                    local shouldCollect = false
+
+                    if useHighPriority and highValueModels[modelName] then
+                        shouldCollect = true
+                    elseif not useHighPriority and (highValueModels[modelName] or lowValueModels[modelName]) then
+                        shouldCollect = true
+                    end
+
+                    if shouldCollect then
+                        local cf = v:GetModelCFrame()
+                        local pos = cf.Position
+                        if isSafe(pos) then
+                            visited[v:GetDebugId()] = true
+                            hrp.CFrame = cf + Vector3.new(0, 3, 0)
+                            task.wait(0.2)
+                        end
+                    end
                 end
             end
         end
-        task.wait(0.5)
+
+        task.wait(0.2)
     end
 
     hrp.CFrame = CFrame.new(waitPos)
