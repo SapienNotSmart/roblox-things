@@ -353,110 +353,156 @@ end
 w1:Button(
     "Open Auto Buy Panel",
     function()
-		local executor = identifyexecutor and identifyexecutor() or "Desconhecido"
+        local executor = identifyexecutor and identifyexecutor() or "Desconhecido"
 
-		if executor == "Xeno" then
-			game:GetService("StarterGui"):SetCore("SendNotification", {
-				Title = "Xeno doesn't support",
-				Text = "heheheha",
-				Button1 = "OK",
-				Duration = 5
-			})
-		else
-			local Players = game:GetService("Players")
-			local LocalPlayer = Players.LocalPlayer
-			
-			local ScreenGui = Instance.new("ScreenGui")
-			local MainFrame = Instance.new("Frame")
-			local Title = Instance.new("TextLabel")
-			local CloseButton = Instance.new("TextButton")
-			local ToggleList = {}
-			
-			ScreenGui.Name = "AutoBuyUI"
-			ScreenGui.ResetOnSpawn = false
-			ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-			
-			-- Main UI Frame
-			MainFrame.Name = "MainFrame"
-			MainFrame.Parent = ScreenGui
-			MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-			MainFrame.Size = UDim2.new(0, 220, 0, 300)
-			MainFrame.Position = UDim2.new(0.4, 0, 0.35, 0)
-			MainFrame.BorderSizePixel = 0
-			MainFrame.BackgroundTransparency = 0.1
-			MainFrame.Active = true
-			MainFrame.Draggable = true -- habilita arrastar
-			
-			-- Título
-			Title.Name = "Title"
-			Title.Parent = MainFrame
-			Title.Size = UDim2.new(1, -30, 0, 30)
-			Title.Position = UDim2.new(0, 10, 0, 0)
-			Title.Text = "Auto Buy Panel"
-			Title.TextColor3 = Color3.new(1, 1, 1)
-			Title.TextSize = 18
-			Title.Font = Enum.Font.GothamBold
-			Title.BackgroundTransparency = 1
-			Title.TextXAlignment = Enum.TextXAlignment.Left
-			
-			-- Botão de Fechar
-			CloseButton.Name = "CloseButton"
-			CloseButton.Parent = MainFrame
-			CloseButton.Size = UDim2.new(0, 20, 0, 20)
-			CloseButton.Position = UDim2.new(1, -25, 0, 5)
-			CloseButton.Text = "X"
-			CloseButton.Font = Enum.Font.GothamBold
-			CloseButton.TextSize = 14
-			CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-			CloseButton.TextColor3 = Color3.new(1, 1, 1)
-			CloseButton.BorderSizePixel = 0
-			CloseButton.MouseButton1Click:Connect(function()
-				MainFrame.Visible = false
-			end)
-			
-			-- Função para criar os toggles de compra
-			local function createToggle(index, name)
-				local button = Instance.new("TextButton")
-				button.Parent = MainFrame
-				button.Size = UDim2.new(1, -20, 0, 30)
-				button.Position = UDim2.new(0, 10, 0, 40 + ((index - 1) * 35))
-				button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-				button.BorderSizePixel = 0
-				button.Text = "❌ " .. name
-				button.Font = Enum.Font.Gotham
-				button.TextColor3 = Color3.fromRGB(255, 100, 100)
-				button.TextSize = 14
-			
-				local enabled = false
-				button.MouseButton1Click:Connect(function()
-					enabled = not enabled
-					if enabled then
-						button.Text = "✅ " .. name
-						button.TextColor3 = Color3.fromRGB(100, 255, 100)
-					else
-						button.Text = "❌ " .. name
-						button.TextColor3 = Color3.fromRGB(255, 100, 100)
-					end
-					-- Aqui você pode adicionar a lógica real de auto buy
-				end)
-			
-				table.insert(ToggleList, button)
-			end
-			
-			-- Lista de opções de compra
-			local buyOptions = {
-				"Buy Kaijunior Box",
-				"Buy Bakeneko",
-				"Buy Kage Crow",
-				"Buy Kappakid",
-				"Buy Super Saru",
-				"Buy Capsule"
-			}
-			
-			for i, item in ipairs(buyOptions) do
-				createToggle(i, item)
-			end
+        if executor == "Xeno" then
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Xeno doesn't support",
+                Text = "heheheha",
+                Button1 = "OK",
+                Duration = 5
+            })
+        else
+            local router
+
+            for i, v in next, getgc(true) do
+                if type(v) == 'table' and rawget(v, 'get_remote_from_cache') then
+                    router = v
+                end
+            end
+            
+            local function rename(remotename, hashedremote)
+                hashedremote.Name = remotename
+            end
+            -- Apply renaming to upvalues of the RouterClient.init function
+            table.foreach(debug.getupvalue(router.get_remote_from_cache, 1), rename)
+
+            -- Referências
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+
+local ShopRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("ShopAPI/BuyItem")
+local LootBoxRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("LootBoxAPI/ExchangeItemForReward")
+
+-- UI Principal
+local screenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
+screenGui.Name = "AutoBuyUI"
+screenGui.ResetOnSpawn = false
+
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Size = UDim2.new(0, 250, 0, 300)
+mainFrame.Position = UDim2.new(0.5, -125, 0.5, -150) -- centralizado
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+
+local uiCorner = Instance.new("UICorner", mainFrame)
+uiCorner.CornerRadius = UDim.new(0, 8)
+
+local closeBtn = Instance.new("TextButton", mainFrame)
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -30, 0, 5)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+closeBtn.BorderSizePixel = 0
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
+closeBtn.MouseButton1Click:Connect(function()
+	screenGui:Destroy()
+end)
+
+-- Estados
+local states = {
+    Kaijunior = false,
+    Capsule = false,
+    Bakeneko = false,
+    KageCrow = false,
+    Kappakid = false,
+    SuperSaru = false
+}
+
+-- Função para criar toggles
+local function createToggle(name, yOffset, callback)
+	local toggle = Instance.new("TextButton", mainFrame)
+	toggle.Size = UDim2.new(1, -20, 0, 30)
+	toggle.Position = UDim2.new(0, 10, 0, yOffset)
+	toggle.Text = "[ OFF ] " .. name
+	toggle.TextColor3 = Color3.new(1, 1, 1)
+	toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	toggle.BorderSizePixel = 0
+	Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 4)
+
+	local toggled = false
+	toggle.MouseButton1Click:Connect(function()
+		toggled = not toggled
+		toggle.Text = (toggled and "[ ON  ] " or "[ OFF ] ") .. name
+		callback(toggled)
+	end)
+end
+
+-- Toggles com lógica de compra
+createToggle("Kaijunior Box", 40, function(state)
+	states.Kaijunior = state
+	task.spawn(function()
+		while states.Kaijunior do
+			ShopRemote:InvokeServer("gifts", "spring_2025_kaijunior_box", { buy_count = 1 })
+			task.wait(1)
 		end
+	end)
+end)
+
+createToggle("Capsule", 75, function(state)
+	states.Capsule = state
+	task.spawn(function()
+		while states.Capsule do
+			LootBoxRemote:InvokeServer("spring_2025_gacha_machine")
+			task.wait(3)
+		end
+	end)
+end)
+
+createToggle("Bakeneko", 110, function(state)
+	states.Bakeneko = state
+	task.spawn(function()
+		while states.Bakeneko do
+			ShopRemote:InvokeServer("pets", "spring_2025_bakeneko", { buy_count = 1 })
+			task.wait(1)
+		end
+	end)
+end)
+
+createToggle("Kage Crow", 145, function(state)
+	states.KageCrow = state
+	task.spawn(function()
+		while states.KageCrow do
+			ShopRemote:InvokeServer("pets", "spring_2025_kage_crow", { buy_count = 1 })
+			task.wait(1)
+		end
+	end)
+end)
+
+createToggle("Kappakid", 180, function(state)
+	states.Kappakid = state
+	task.spawn(function()
+		while states.Kappakid do
+			ShopRemote:InvokeServer("pets", "spring_2025_kappakid", { buy_count = 1 })
+			task.wait(1)
+		end
+	end)
+end)
+
+createToggle("Super Saru", 215, function(state)
+	states.SuperSaru = state
+	task.spawn(function()
+		while states.SuperSaru do
+			ShopRemote:InvokeServer("pets", "spring_2025_super_saru", { buy_count = 1 })
+			task.wait(1)
+		end
+	end)
+end)
+        end
     end
 )
 
