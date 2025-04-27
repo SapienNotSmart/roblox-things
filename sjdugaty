@@ -83,7 +83,7 @@ local function startSakuraFarm()
     
     -- Teleporta para a área e espera
     hrp.CFrame = CFrame.new(firstPos)
-    task.wait(1)
+    task.wait(3)
     hrp.CFrame = CFrame.new(secondPos)
     task.wait(0.5)
     
